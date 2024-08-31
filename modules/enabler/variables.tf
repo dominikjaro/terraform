@@ -6,3 +6,4 @@ variable "enabler_project_id" {
 variable "enabler_region" {
   type = string
 }
+

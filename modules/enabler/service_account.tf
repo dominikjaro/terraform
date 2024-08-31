@@ -1,4 +1,4 @@
-#GCP service account to be used by the IAC automation tasks
+# #GCP service account to be used by the IAC automation tasks
 resource "google_service_account" "iac_automation" {
   account_id   = "iac-automation"
   display_name = "IAC Automation Service Account"
