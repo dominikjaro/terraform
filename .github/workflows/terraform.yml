@@ -1,0 +1,47 @@
+name: 'Terraform'
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request # Only run for pull requests
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # Checkout the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Authenticate with Google Cloud
+      - id: auth
+        uses: google-github-actions/auth@v2.0.0  
+        with:
+          workload_identity_provider: ${{secrets.GCP_WIF_PROVIDER}}
+          service_account: ${{secrets.GCP_IAC_SERVICE_ACCOUNT}}
+
+      # Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      # Run Terraform Plan if the comment contains "terraform plan"
+      - name: Terraform Plan
+        if: contains(github.event.comment.body, 'terraform plan')
+        run: terraform init && terraform plan -input=false
+
+      # Run Terraform Apply if the comment contains "terraform apply"
+      - name: Terraform Apply
+        if: contains(github.event.comment.body, 'terraform apply')
+        run: terraform apply -auto-approve -input=false
