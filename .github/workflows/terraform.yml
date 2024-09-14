@@ -7,12 +7,13 @@ on:
 permissions:
   contents: read
   id-token: write
+  pull-requests: write
 
 jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
-    if: github.event.issue.pull_request # Only run for pull requests
+    if: github.event.issue.pull_request && contains(github.event.comment.body, 'terraform') # Only run for pull requests
 
     defaults:
       run:
@@ -22,6 +23,33 @@ jobs:
       # Checkout the repository
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Extract environment from comment
+      - name: Extract environment
+        id: extract_env
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          ENV=$(echo "$COMMENT" | grep -oP 'env=\K\w+')
+          if [ -z "$ENV" ]; then
+            echo "ERROR=No environment specified. Please use 'env=<environment>' in your comment." >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "ENV=$ENV" >> $GITHUB_OUTPUT
+          fi
+
+      # Comment error if no environment is specified
+      - name: Comment Error
+        if: failure() && steps.extract_env.outputs.ERROR
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '${{ steps.extract_env.outputs.ERROR }}'
+            })
 
       # Authenticate with Google Cloud
       - id: auth
@@ -36,12 +64,38 @@ jobs:
         with:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
-      # Run Terraform Plan if the comment contains "terraform plan"
+      # Run Terraform Plan
       - name: Terraform Plan
         if: contains(github.event.comment.body, 'terraform plan')
-        run: terraform init && terraform plan -input=false
+        run: |
+          cd terraform/environments/${{ steps.extract_env.outputs.ENV }}
+          terraform init
+          terraform plan -input=false -no-color > tf_plan.txt
+        continue-on-error: true
 
-      # Run Terraform Apply if the comment contains "terraform apply"
+      # Comment Plan Output
+      - name: Comment Plan Output
+        if: contains(github.event.comment.body, 'terraform plan')
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('tf_plan.txt', 'utf8');
+            const truncatedOutput = planOutput.length > 65000
+              ? planOutput.substr(0, 65000) + "\n\n... (Output truncated)"
+              : planOutput;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '```hcl\n' + truncatedOutput + '\n```'
+            })
+        
+      # Run Terraform Apply
       - name: Terraform Apply
         if: contains(github.event.comment.body, 'terraform apply')
-        run: terraform apply -auto-approve -input=false
+        run: |
+          terraform init
+          terraform workspace select ${{ steps.extract_env.outputs.ENV }} || terraform workspace new ${{ steps.extract_env.outputs.ENV }}
+          terraform apply -auto-approve -input=false
