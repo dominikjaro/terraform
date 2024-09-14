@@ -72,25 +72,6 @@ jobs:
           terraform init
           terraform plan -input=false -no-color > tf_plan.txt
         continue-on-error: true
-
-      # Comment Plan Output
-      - name: Comment Plan Output
-        if: contains(github.event.comment.body, 'terraform plan')
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const planOutput = fs.readFileSync('tf_plan.txt', 'utf8');
-            const truncatedOutput = planOutput.length > 65000
-              ? planOutput.substr(0, 65000) + "\n\n... (Output truncated)"
-              : planOutput;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '```hcl\n' + truncatedOutput + '\n```'
-            })
         
       # Run Terraform Apply
       - name: Terraform Apply
