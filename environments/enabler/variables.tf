@@ -25,9 +25,3 @@ variable "dominikjaro_dev_project_id" {
   description = "The project ID for the dominikjaro development project."
   default     = "dominikjaro-dev"
 }
-
-variable "billing_account_id" {
-  type        = string
-  description = "The billing account ID to be used for the projects."
-  default     = "0142EF-B9BC8B-EA8B75"
-}

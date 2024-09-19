@@ -24,7 +24,7 @@ override.tf.json
 *_override.tf.json
 
 # Ignore billing account id
-billing_account_id
+billing_account.tf
 
 # Ignore transient lock info files created by terraform apply
 .terraform.tfstate.lock.info
