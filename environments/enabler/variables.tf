@@ -25,3 +25,8 @@ variable "dominikjaro_dev_project_id" {
   description = "The project ID for the dominikjaro development project."
   default     = "dominikjaro-dev"
 }
+
+variable "env" {
+  type        = string
+  description = "The environment to deploy to."
+}
